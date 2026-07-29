@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fast, Secure Notary Services — Online or Mobile | Miami</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    
 </head>
 
 <body>
-
+    <div class="theme-selector">
+    <label for="theme">Theme:</label>
+        <select id="theme">
+            <option value="classic-dark">Classic Dark</option>
+            <option value="miami-dark">Miami Dark</option>
+            <option value="miami-solarized">Miami Solarized</option>
+            <option value="brickell-neon">Brickell Neon</option>
+            <option value="brickell-neon-solarized">Brickell Neon Solarized</option>
+        </select>
+    </div>
     <!-- HERO SECTION -->
     <header>
         <h1>Fast, Secure Notary Services — Online or Mobile</h1>
@@ -23,41 +35,85 @@
     <!-- QUICK SERVICE CARDS -->
     <section id="quick-services">
         <h2>Our Services</h2>
+        <div class="service-grid">
+            <div class="service-card">
+                <h3>Remote Online Notarization (RON)</h3>
+                <p>Secure, fast, and fully digital notarization from anywhere.</p>
+            </div>
 
-        <div class="service-card">
-            <h3>Remote Online Notarization (RON)</h3>
-            <p>Secure, fast, and fully digital notarization from anywhere.</p>
-        </div>
+            <div class="service-card">
+                <h3>Mobile Notary</h3>
+                <p>We come to your home, office, or meeting location.</p>
+            </div>
 
-        <div class="service-card">
-            <h3>Mobile Notary</h3>
-            <p>We come to your home, office, or meeting location.</p>
-        </div>
+            <div class="service-card">
+                <h3>Document Verification</h3>
+                <p>Ensure your documents are complete and ready for notarization.</p>
+            </div>
 
-        <div class="service-card">
-            <h3>Document Verification</h3>
-            <p>Ensure your documents are complete and ready for notarization.</p>
-        </div>
-
-        <div class="service-card">
-            <h3>Witness Services</h3>
-            <p>Available for POA, wills, and other documents requiring witnesses.</p>
-        </div>
+            <div class="service-card">
+                <h3>Witness Services</h3>
+                <p>Available for POA, wills, and other documents requiring witnesses.</p>
+            </div>
+    </div>
     </section>
 
 
     <!-- WHY CHOOSE US -->
     <section id="why-us">
-        <h2>Why Choose Us</h2>
-        <ul>
-            <li>Fast turnaround</li>
-            <li>Secure digital notarization</li>
-            <li>Miami‑based service</li>
-            <li>Flexible scheduling</li>
-            <li>Senior‑friendly process</li>
-        </ul>
+    <h2>Why Choose Us</h2>
+
+        <div class="why-grid">
+
+            <div class="why-card">
+            <h3>Fast Turnaround</h3>
+            <p>Same‑day notarization — often within the hour. No waiting, no delays, no stress.</p>
+            </div>
+
+            <div class="why-card">
+            <h3>Secure Digital Notarization</h3>
+            <p>Encrypted sessions, verified identity, and secure document handling. Your privacy is protected at every step.</p>
+            </div>
+
+            <div class="why-card">
+            <h3>Miami‑Based Service</h3>
+            <p>We know Brickell, Downtown, Midtown, Doral, Kendall — and the forms, offices, and procedures that come with them.</p>
+            </div>
+
+            <div class="why-card">
+            <h3>Flexible Scheduling</h3>
+            <p>Morning, night, weekends — online or mobile. We adapt to your schedule, not the other way around.</p>
+            </div>
+
+            <div class="why-card">
+            <h3>Senior‑Friendly Process</h3>
+            <p>Clear explanations, patient guidance, and a calm step‑by‑step approach for wills, POAs, and medical documents.</p>
+            </div>
+
+        </div>
     </section>
 
+
+    <section id="email-contact">
+        <h2>Contact Us by Email</h2>
+        <p>Prefer a formal paper trail? Send us your request or document details by email — we respond within one business hour.</p>
+        <br>       
+        <form id="emailForm" action="https://formspree.io/f/xeeynbkn" method="POST">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="email">Your Email</label>
+            <input type="email" id="email" name="_replyto" required>
+
+            <label for="message">Message</label>
+            <textarea id="message" name="message" rows="5" required></textarea>
+
+            <button type="submit" class="btn-primary">Send Email</button>
+            <br>
+        </form>
+
+        <p class="email-note">You can also reach us directly at <a href="mailto:contact@lhnsnotary.com">contact@lhnsnotary.com</a>.</p>
+    </section>
 
     <!-- HOW RON WORKS -->
     <section id="how-ron-works">
@@ -112,6 +168,9 @@
             <a href="#">WhatsApp</a>
         </div>
     </footer>
+
+    <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/form.js" defer></script>
 
 </body>
 </html>
