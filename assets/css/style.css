@@ -481,5 +481,10 @@ footer h3 {
         line-height: 1.5;
 }
 
+.lhns-tagline {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    opacity: 0.9;
+}
 
 

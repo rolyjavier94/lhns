@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scheduler | Notary Services</title>
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <link rel="stylesheet" href="../assets/css/scheduler.css" />
+  </head>
+  <body>
+    <main class="scheduler-main">
+      <h1>Book an Appointment</h1>
+      <p>Select an available time slot, then complete the form.</p>
+
+      <section class="scheduler-layout" aria-label="Appointment scheduler">
+        <div class="calendar-panel">
+          <h2>Availability</h2>
+          <div id="calendar" aria-live="polite"></div>
+        </div>
+
+        <div class="booking-panel">
+          <h2>Booking Details</h2>
+          <form id="bookingForm">
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" required />
+
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required />
+
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="4"></textarea>
+
+            <input id="selectedDatetime" name="selectedDatetime" type="hidden" />
+
+            <button type="submit">Book appointment</button>
+          </form>
+
+          <p id="message" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+
+    <script src="../assets/js/scheduler.js" defer></script>
+  </body>
+</html>
