@@ -1,15 +1,20 @@
 (() => {
+    const storageKey = "lhns-theme";
     const themeSelect = document.getElementById("theme");
+    const storedTheme = localStorage.getItem(storageKey);
+
+    if (storedTheme) {
+        document.body.dataset.theme = storedTheme;
+    }
+
     if (!themeSelect) {
         return;
     }
 
-    const storageKey = "lhns-theme";
     const validThemes = new Set(
         Array.from(themeSelect.options).map((option) => option.value)
     );
 
-    const storedTheme = localStorage.getItem(storageKey);
     const initialTheme =
         storedTheme && validThemes.has(storedTheme)
             ? storedTheme

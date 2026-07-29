@@ -1,4 +1,49 @@
 const API_BASE = "https://us-central1-lnhs-eac77.cloudfunctions.net";
+const HOURS = [16, 17, 18, 19, 20, 21];
+const DAYS_TO_SHOW = 60;
+
+let customerSet = new Set();
+let internalSet = new Set();
+
+const today = startOfDay(new Date());
+const maxDate = addDays(today, DAYS_TO_SHOW - 1);
+let currentMonth = startOfMonth(today);
+let selectedDate = startOfDay(new Date());
+
+const monthLabelEl = document.getElementById("monthLabel");
+const prevMonthEl = document.getElementById("prevMonth");
+const nextMonthEl = document.getElementById("nextMonth");
+const selectedDatetimeEl = document.getElementById("selectedDatetime");
+
+prevMonthEl.addEventListener("click", () => {
+  const previousMonth = addMonths(currentMonth, -1);
+  const monthEnd = endOfMonth(previousMonth);
+  if (monthEnd < today) {
+    return;
+  }
+
+  currentMonth = previousMonth;
+  if (!isDateInWindow(selectedDate)) {
+    selectedDate = today;
+  }
+  renderCalendar();
+  renderDaySlots();
+});
+
+nextMonthEl.addEventListener("click", () => {
+  const followingMonth = addMonths(currentMonth, 1);
+  const monthStart = startOfMonth(followingMonth);
+  if (monthStart > maxDate) {
+    return;
+  }
+
+  currentMonth = followingMonth;
+  if (!isDateInWindow(selectedDate)) {
+    selectedDate = maxDate;
+  }
+  renderCalendar();
+  renderDaySlots();
+});
 
 // Load availability from backend
 async function loadAvailability() {
@@ -12,11 +57,17 @@ async function loadAvailability() {
     }
 
     const data = await res.json();
-    renderAvailability(data.customer || [], data.internal || []);
+    customerSet = new Set(data.customer || []);
+    internalSet = new Set(data.internal || []);
+    renderCalendar();
+    renderDaySlots();
   } catch (err) {
     const container = document.getElementById("calendar");
     if (container) {
-      container.innerHTML = "<p>Unable to load availability right now. Please try again shortly.</p>";
+      container.replaceChildren();
+      const errorText = document.createElement("p");
+      errorText.textContent = "Unable to load availability right now. Please try again shortly.";
+      container.appendChild(errorText);
     }
     if (messageEl) {
       messageEl.textContent = "Could not load availability. Check your connection and try again.";
@@ -25,69 +76,218 @@ async function loadAvailability() {
   }
 }
 
-// Render the calendar grid
-function renderAvailability(customer, internal) {
+function renderCalendar() {
   const container = document.getElementById("calendar");
   if (!container) {
     return;
   }
 
-  container.innerHTML = ""; // clear old content
+  container.replaceChildren();
+  monthLabelEl.textContent = currentMonth.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric"
+  });
 
-  const now = new Date();
-  const daysToShow = 30;
+  prevMonthEl.disabled = endOfMonth(addMonths(currentMonth, -1)) < today;
+  nextMonthEl.disabled = startOfMonth(addMonths(currentMonth, 1)) > maxDate;
 
-  for (let i = 0; i < daysToShow; i++) {
-    const day = new Date(now);
-    day.setDate(now.getDate() + i);
+  const firstVisibleDay = startOfWeek(startOfMonth(currentMonth));
 
-    const dateStr = day.toISOString().split("T")[0];
+  for (let i = 0; i < 42; i++) {
+    const day = addDays(firstVisibleDay, i);
+    const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+    const inWindow = isDateInWindow(day);
+    const dayState = getDayState(day);
 
-    // Create day block
-    const dayBlock = document.createElement("div");
-    dayBlock.className = "day";
-    dayBlock.innerHTML = `<strong>${dateStr}</strong>`;
-
-    // Business hours: 4 PM – 9 PM
-    for (let hour = 16; hour <= 21; hour++) {
-      const slot = new Date(day);
-      slot.setHours(hour, 0, 0, 0);
-
-      const iso = slot.toISOString();
-      const label = `${String(hour).padStart(2, "0")}:00`;
-
-      const slotEl = document.createElement("div");
-      slotEl.className = "slot";
-
-      if (customer.includes(iso)) {
-        slotEl.textContent = `${label} • Customer Appt`;
-        slotEl.classList.add("customer");
-      } else if (internal.includes(iso)) {
-        slotEl.textContent = `${label} • Unavailable`;
-        slotEl.classList.add("internal");
-      } else {
-        slotEl.textContent = `${label} • Available`;
-        slotEl.classList.add("open");
-
-        slotEl.addEventListener("click", () => {
-          document.querySelectorAll(".slot.open").forEach(s => s.classList.remove("selected"));
-          slotEl.classList.add("selected");
-          document.getElementById("selectedDatetime").value = iso;
-        });
-      }
-
-      dayBlock.appendChild(slotEl);
+    const dayButton = document.createElement("button");
+    dayButton.type = "button";
+    dayButton.className = "day-cell";
+    if (!isCurrentMonth) {
+      dayButton.classList.add("out-month");
+    }
+    if (isSameDay(day, today)) {
+      dayButton.classList.add("today");
+    }
+    if (isSameDay(day, selectedDate) && inWindow) {
+      dayButton.classList.add("selected");
+    }
+    if (!inWindow) {
+      dayButton.disabled = true;
+    }
+    if (dayState.openCount > 0) {
+      dayButton.classList.add("has-open");
+    } else if (inWindow) {
+      dayButton.classList.add("full");
     }
 
-    container.appendChild(dayBlock);
+    const dayNumber = document.createElement("span");
+    dayNumber.className = "day-number";
+    dayNumber.textContent = String(day.getDate());
+    dayButton.appendChild(dayNumber);
+
+    const meta = document.createElement("span");
+    meta.className = "day-meta";
+    const indicator = document.createElement("span");
+    indicator.className = "day-indicator";
+    if (!inWindow) {
+      meta.textContent = "Outside booking range";
+      indicator.classList.add("out-range");
+    } else if (dayState.openCount > 0) {
+      meta.textContent = `${dayState.openCount} open slot${dayState.openCount === 1 ? "" : "s"}`;
+      indicator.classList.add("open");
+    } else {
+      meta.textContent = "No slots open";
+      indicator.classList.add("full");
+    }
+    dayButton.appendChild(indicator);
+    dayButton.appendChild(meta);
+
+    dayButton.addEventListener("click", () => {
+      selectedDate = startOfDay(day);
+      selectedDatetimeEl.value = "";
+      renderCalendar();
+      renderDaySlots();
+    });
+
+    container.appendChild(dayButton);
   }
+}
+
+function renderDaySlots() {
+  const daySlotsEl = document.getElementById("daySlots");
+  if (!daySlotsEl) {
+    return;
+  }
+
+  daySlotsEl.replaceChildren();
+
+  const heading = document.createElement("h3");
+  heading.textContent = selectedDate.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+  daySlotsEl.appendChild(heading);
+
+  if (!isDateInWindow(selectedDate)) {
+    const outOfRange = document.createElement("p");
+    outOfRange.textContent = "This date is outside the booking range.";
+    daySlotsEl.appendChild(outOfRange);
+    return;
+  }
+
+  const slotGrid = document.createElement("div");
+  slotGrid.className = "slot-grid";
+
+  HOURS.forEach((hour) => {
+    const iso = buildSlotIso(selectedDate, hour);
+    const label = `${String(hour).padStart(2, "0")}:00`;
+
+    if (customerSet.has(iso)) {
+      const slotEl = document.createElement("div");
+      slotEl.className = "slot customer";
+      slotEl.textContent = `${label} - Customer Appt`;
+      slotGrid.appendChild(slotEl);
+      return;
+    }
+
+    if (internalSet.has(iso)) {
+      const slotEl = document.createElement("div");
+      slotEl.className = "slot internal";
+      slotEl.textContent = `${label} - Unavailable`;
+      slotGrid.appendChild(slotEl);
+      return;
+    }
+
+    const slotButton = document.createElement("button");
+    slotButton.type = "button";
+    slotButton.className = "slot open";
+    slotButton.textContent = `${label} - Available`;
+
+    if (selectedDatetimeEl.value === iso) {
+      slotButton.classList.add("selected");
+    }
+
+    slotButton.addEventListener("click", () => {
+      daySlotsEl.querySelectorAll(".slot.open").forEach((slot) => slot.classList.remove("selected"));
+      slotButton.classList.add("selected");
+      selectedDatetimeEl.value = iso;
+    });
+
+    slotGrid.appendChild(slotButton);
+  });
+
+  daySlotsEl.appendChild(slotGrid);
+}
+
+function getDayState(day) {
+  let openCount = 0;
+
+  HOURS.forEach((hour) => {
+    const iso = buildSlotIso(day, hour);
+    if (!customerSet.has(iso) && !internalSet.has(iso)) {
+      openCount += 1;
+    }
+  });
+
+  return { openCount };
+}
+
+function buildSlotIso(day, hour) {
+  const slot = new Date(day);
+  slot.setHours(hour, 0, 0, 0);
+  return slot.toISOString();
+}
+
+function isDateInWindow(day) {
+  const d = startOfDay(day);
+  return d >= today && d <= maxDate;
+}
+
+function startOfDay(date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function startOfWeek(date) {
+  const value = startOfDay(date);
+  value.setDate(value.getDate() - value.getDay());
+  return value;
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function addDays(date, amount) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + amount);
+  return startOfDay(value);
+}
+
+function addMonths(date, amount) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 // Booking form submit
 document.getElementById("bookingForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const datetime = document.getElementById("selectedDatetime").value;
+  const datetime = selectedDatetimeEl.value;
   const msg = document.getElementById("message");
 
   if (!datetime) {

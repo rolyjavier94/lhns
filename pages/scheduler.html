@@ -16,7 +16,25 @@
       <section class="scheduler-layout" aria-label="Appointment scheduler">
         <div class="calendar-panel">
           <h2>Availability</h2>
-          <div id="calendar" aria-live="polite"></div>
+          <div class="calendar-toolbar" aria-label="Calendar navigation">
+            <button id="prevMonth" type="button" class="month-nav" aria-label="Previous month">Prev</button>
+            <p id="monthLabel" class="month-label" aria-live="polite"></p>
+            <button id="nextMonth" type="button" class="month-nav" aria-label="Next month">Next</button>
+          </div>
+
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>Sun</span>
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+          </div>
+
+          <div id="calendar" class="calendar-grid" aria-live="polite"></div>
+
+          <section id="daySlots" class="day-slots" aria-live="polite"></section>
         </div>
 
         <div class="booking-panel">
@@ -41,6 +59,7 @@
       </section>
     </main>
 
+    <script src="../assets/js/theme.js" defer></script>
     <script src="../assets/js/scheduler.js" defer></script>
   </body>
 </html>
