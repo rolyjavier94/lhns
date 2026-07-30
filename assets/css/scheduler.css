@@ -222,6 +222,12 @@ button.slot {
   font-weight: 600;
 }
 
+.duration-hint {
+  margin: -0.25rem 0 0.1rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
 #bookingForm input,
 #bookingForm textarea,
 #bookingForm button {

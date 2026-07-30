@@ -1,5 +1,7 @@
 const API_BASE = "https://us-central1-lnhs-eac77.cloudfunctions.net";
-const HOURS = [16, 17, 18, 19, 20, 21];
+const SLOT_MINUTES = 15;
+const OPEN_MINUTES = 16 * 60;
+const CLOSE_MINUTES = 22 * 60;
 const DAYS_TO_SHOW = 60;
 
 let customerSet = new Set();
@@ -14,6 +16,8 @@ const monthLabelEl = document.getElementById("monthLabel");
 const prevMonthEl = document.getElementById("prevMonth");
 const nextMonthEl = document.getElementById("nextMonth");
 const selectedDatetimeEl = document.getElementById("selectedDatetime");
+const signatureCountEl = document.getElementById("signatureCount");
+const durationHintEl = document.getElementById("durationHint");
 
 prevMonthEl.addEventListener("click", () => {
   const previousMonth = addMonths(currentMonth, -1);
@@ -45,7 +49,19 @@ nextMonthEl.addEventListener("click", () => {
   renderDaySlots();
 });
 
-// Load availability from backend
+if (signatureCountEl) {
+  signatureCountEl.addEventListener("input", () => {
+    const signatures = getSignatureCount();
+    signatureCountEl.value = String(signatures);
+    selectedDatetimeEl.value = "";
+    updateDurationHint();
+    renderCalendar();
+    renderDaySlots();
+  });
+}
+
+updateDurationHint();
+
 async function loadAvailability() {
   const messageEl = document.getElementById("message");
 
@@ -91,13 +107,14 @@ function renderCalendar() {
   prevMonthEl.disabled = endOfMonth(addMonths(currentMonth, -1)) < today;
   nextMonthEl.disabled = startOfMonth(addMonths(currentMonth, 1)) > maxDate;
 
+  const requiredDuration = getRequiredDurationMinutes(getSignatureCount());
   const firstVisibleDay = startOfWeek(startOfMonth(currentMonth));
 
   for (let i = 0; i < 42; i++) {
     const day = addDays(firstVisibleDay, i);
     const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
     const inWindow = isDateInWindow(day);
-    const dayState = getDayState(day);
+    const dayState = getDayState(day, requiredDuration);
 
     const dayButton = document.createElement("button");
     dayButton.type = "button";
@@ -133,10 +150,10 @@ function renderCalendar() {
       meta.textContent = "Outside booking range";
       indicator.classList.add("out-range");
     } else if (dayState.openCount > 0) {
-      meta.textContent = `${dayState.openCount} open slot${dayState.openCount === 1 ? "" : "s"}`;
+      meta.textContent = `${dayState.openCount} open start${dayState.openCount === 1 ? "" : "s"}`;
       indicator.classList.add("open");
     } else {
-      meta.textContent = "No slots open";
+      meta.textContent = "No starts open";
       indicator.classList.add("full");
     }
     dayButton.appendChild(indicator);
@@ -161,6 +178,10 @@ function renderDaySlots() {
 
   daySlotsEl.replaceChildren();
 
+  const signatures = getSignatureCount();
+  const requiredDuration = getRequiredDurationMinutes(signatures);
+  const startMinutes = getPotentialStartMinutes(requiredDuration);
+
   const heading = document.createElement("h3");
   heading.textContent = selectedDate.toLocaleDateString(undefined, {
     weekday: "long",
@@ -169,6 +190,11 @@ function renderDaySlots() {
     year: "numeric"
   });
   daySlotsEl.appendChild(heading);
+
+  const hint = document.createElement("p");
+  hint.className = "day-slots-hint";
+  hint.textContent = `Showing start times for ${formatDuration(requiredDuration)} based on ${signatures} signature${signatures === 1 ? "" : "s"}.`;
+  daySlotsEl.appendChild(hint);
 
   if (!isDateInWindow(selectedDate)) {
     const outOfRange = document.createElement("p");
@@ -180,11 +206,12 @@ function renderDaySlots() {
   const slotGrid = document.createElement("div");
   slotGrid.className = "slot-grid";
 
-  HOURS.forEach((hour) => {
-    const iso = buildSlotIso(selectedDate, hour);
-    const label = `${String(hour).padStart(2, "0")}:00`;
+  startMinutes.forEach((minuteOfDay) => {
+    const iso = buildSlotIsoFromMinute(selectedDate, minuteOfDay);
+    const label = formatMinuteOfDay(minuteOfDay);
+    const startState = getStartState(selectedDate, minuteOfDay, requiredDuration);
 
-    if (customerSet.has(iso)) {
+    if (startState === "customer") {
       const slotEl = document.createElement("div");
       slotEl.className = "slot customer";
       slotEl.textContent = `${label} - Customer Appt`;
@@ -192,7 +219,7 @@ function renderDaySlots() {
       return;
     }
 
-    if (internalSet.has(iso)) {
+    if (startState === "internal") {
       const slotEl = document.createElement("div");
       slotEl.className = "slot internal";
       slotEl.textContent = `${label} - Unavailable`;
@@ -221,12 +248,12 @@ function renderDaySlots() {
   daySlotsEl.appendChild(slotGrid);
 }
 
-function getDayState(day) {
+function getDayState(day, requiredDuration) {
+  const startMinutes = getPotentialStartMinutes(requiredDuration);
   let openCount = 0;
 
-  HOURS.forEach((hour) => {
-    const iso = buildSlotIso(day, hour);
-    if (!customerSet.has(iso) && !internalSet.has(iso)) {
+  startMinutes.forEach((minuteOfDay) => {
+    if (getStartState(day, minuteOfDay, requiredDuration) === "open") {
       openCount += 1;
     }
   });
@@ -234,10 +261,98 @@ function getDayState(day) {
   return { openCount };
 }
 
-function buildSlotIso(day, hour) {
+function getStartState(day, startMinute, requiredDuration) {
+  let hasCustomer = false;
+  let hasInternal = false;
+
+  for (let offset = 0; offset < requiredDuration; offset += SLOT_MINUTES) {
+    const iso = buildSlotIsoFromMinute(day, startMinute + offset);
+    if (customerSet.has(iso)) {
+      hasCustomer = true;
+    }
+    if (internalSet.has(iso)) {
+      hasInternal = true;
+    }
+  }
+
+  if (hasCustomer) {
+    return "customer";
+  }
+  if (hasInternal) {
+    return "internal";
+  }
+  return "open";
+}
+
+function getPotentialStartMinutes(requiredDuration) {
+  const starts = [];
+  for (let minute = OPEN_MINUTES; minute + requiredDuration <= CLOSE_MINUTES; minute += SLOT_MINUTES) {
+    starts.push(minute);
+  }
+  return starts;
+}
+
+function buildSlotIsoFromMinute(day, minuteOfDay) {
   const slot = new Date(day);
-  slot.setHours(hour, 0, 0, 0);
+  const hours = Math.floor(minuteOfDay / 60);
+  const minutes = minuteOfDay % 60;
+  slot.setHours(hours, minutes, 0, 0);
   return slot.toISOString();
+}
+
+function getSignatureCount() {
+  if (!signatureCountEl) {
+    return 1;
+  }
+
+  const parsed = Number.parseInt(signatureCountEl.value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+
+  return parsed;
+}
+
+function getRequiredDurationMinutes(signatures) {
+  if (signatures <= 10) {
+    return 15;
+  }
+  if (signatures <= 20) {
+    return 30;
+  }
+  return 60;
+}
+
+function formatDuration(minutes) {
+  if (minutes === 60) {
+    return "1 hour";
+  }
+  return `${minutes} minutes`;
+}
+
+function formatMinuteOfDay(minuteOfDay) {
+  const hours24 = Math.floor(minuteOfDay / 60);
+  const minutes = minuteOfDay % 60;
+  const period = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = ((hours24 + 11) % 12) + 1;
+  return `${hours12}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+function updateDurationHint() {
+  if (!durationHintEl) {
+    return;
+  }
+
+  const signatures = getSignatureCount();
+  const duration = getRequiredDurationMinutes(signatures);
+
+  if (duration === 15) {
+    durationHintEl.textContent = "1-10 signatures: 15 minutes minimum.";
+  } else if (duration === 30) {
+    durationHintEl.textContent = "11-20 signatures: 30 minutes required.";
+  } else {
+    durationHintEl.textContent = "21+ signatures: up to 1 hour required.";
+  }
 }
 
 function isDateInWindow(day) {
@@ -283,19 +398,37 @@ function isSameDay(a, b) {
   );
 }
 
-// Booking form submit
+function isWeekendIso(isoDatetime) {
+  const day = new Date(isoDatetime).getDay();
+  return day === 0 || day === 6;
+}
+
 document.getElementById("bookingForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const datetime = selectedDatetimeEl.value;
   const msg = document.getElementById("message");
+  const signatures = getSignatureCount();
+  const durationMinutes = getRequiredDurationMinutes(signatures);
 
   if (!datetime) {
     msg.textContent = "Please select an available time slot first.";
     msg.style.color = "red";
     return;
   }
-  
+
+  const selected = new Date(datetime);
+  const selectedDay = startOfDay(selected);
+  const selectedMinute = selected.getHours() * 60 + selected.getMinutes();
+  if (getStartState(selectedDay, selectedMinute, durationMinutes) !== "open") {
+    msg.textContent = "The selected start time is no longer available for the required duration. Please choose another slot.";
+    msg.style.color = "red";
+    selectedDatetimeEl.value = "";
+    renderCalendar();
+    renderDaySlots();
+    return;
+  }
+
   if (isWeekendIso(datetime)) {
     const proceed = window.confirm(
       "Weekend appointments are billed at 2.5x regular rates and are considered emergency hearings. Do you want to continue?"
@@ -312,12 +445,10 @@ document.getElementById("bookingForm").addEventListener("submit", async (e) => {
     name: document.getElementById("name").value.trim(),
     email: document.getElementById("email").value.trim(),
     datetime,
+    signatureCount: signatures,
+    durationMinutes,
     notes: document.getElementById("notes").value.trim()
   };
-function isWeekendIso(isoDatetime) {
-  const day = new Date(isoDatetime).getDay();
-  return day === 0 || day === 6;
-}
 
   try {
     const res = await fetch(`${API_BASE}/bookAppointment`, {
@@ -331,7 +462,7 @@ function isWeekendIso(isoDatetime) {
     if (res.ok && result.success) {
       msg.textContent = "Appointment booked successfully.";
       msg.style.color = "green";
-      await loadAvailability(); // refresh calendar
+      await loadAvailability();
     } else {
       msg.textContent = `Error: ${result.error || "Unknown error"}`;
       msg.style.color = "red";
@@ -342,5 +473,4 @@ function isWeekendIso(isoDatetime) {
   }
 });
 
-// Initial load
 loadAvailability();
