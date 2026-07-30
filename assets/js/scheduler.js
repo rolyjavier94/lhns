@@ -315,10 +315,10 @@ function getSignatureCount() {
 
 function getRequiredDurationMinutes(signatures) {
   if (signatures <= 10) {
-    return 15;
+    return 10;
   }
   if (signatures <= 20) {
-    return 30;
+    return 15;
   }
   return 60;
 }
@@ -346,10 +346,10 @@ function updateDurationHint() {
   const signatures = getSignatureCount();
   const duration = getRequiredDurationMinutes(signatures);
 
-  if (duration === 15) {
-    durationHintEl.textContent = "1-10 signatures: 15 minutes minimum.";
-  } else if (duration === 30) {
-    durationHintEl.textContent = "11-20 signatures: 30 minutes required.";
+  if (duration === 10) {
+    durationHintEl.textContent = "1-10 signatures: 10 minutes minimum.";
+  } else if (duration === 15) {
+    durationHintEl.textContent = "11-20 signatures: 15 minutes required.";
   } else {
     durationHintEl.textContent = "21+ signatures: up to 1 hour required.";
   }
