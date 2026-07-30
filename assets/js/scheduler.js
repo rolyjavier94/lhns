@@ -295,6 +295,18 @@ document.getElementById("bookingForm").addEventListener("submit", async (e) => {
     msg.style.color = "red";
     return;
   }
+  
+  if (isWeekendIso(datetime)) {
+    const proceed = window.confirm(
+      "Weekend appointments are billed at 2.5x regular rates and are considered emergency hearings. Do you want to continue?"
+    );
+
+    if (!proceed) {
+      msg.textContent = "Booking canceled. Please choose a weekday slot to avoid emergency weekend rates.";
+      msg.style.color = "#b45309";
+      return;
+    }
+  }
 
   const payload = {
     name: document.getElementById("name").value.trim(),
@@ -302,6 +314,10 @@ document.getElementById("bookingForm").addEventListener("submit", async (e) => {
     datetime,
     notes: document.getElementById("notes").value.trim()
   };
+function isWeekendIso(isoDatetime) {
+  const day = new Date(isoDatetime).getDay();
+  return day === 0 || day === 6;
+}
 
   try {
     const res = await fetch(`${API_BASE}/bookAppointment`, {
