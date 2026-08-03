@@ -18,6 +18,9 @@ const nextMonthEl = document.getElementById("nextMonth");
 const selectedDatetimeEl = document.getElementById("selectedDatetime");
 const signatureCountEl = document.getElementById("signatureCount");
 const durationHintEl = document.getElementById("durationHint");
+const bookingFormEl = document.getElementById("bookingForm");
+const loadingOverlayEl = document.getElementById("loadingOverlay");
+const bookingSubmitEl = bookingFormEl ? bookingFormEl.querySelector('button[type="submit"]') : null;
 
 prevMonthEl.addEventListener("click", () => {
   const previousMonth = addMonths(currentMonth, -1);
@@ -403,7 +406,20 @@ function isWeekendIso(isoDatetime) {
   return day === 0 || day === 6;
 }
 
-document.getElementById("bookingForm").addEventListener("submit", async (e) => {
+function setBookingLoadingState(isLoading) {
+  if (loadingOverlayEl) {
+    loadingOverlayEl.style.display = isLoading ? "flex" : "none";
+    loadingOverlayEl.setAttribute("aria-hidden", isLoading ? "false" : "true");
+  }
+
+  if (bookingSubmitEl) {
+    bookingSubmitEl.disabled = isLoading;
+    bookingSubmitEl.textContent = isLoading ? "Booking..." : "Book appointment";
+  }
+}
+
+if (bookingFormEl) {
+  bookingFormEl.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const datetime = selectedDatetimeEl.value;
@@ -450,6 +466,8 @@ document.getElementById("bookingForm").addEventListener("submit", async (e) => {
     notes: document.getElementById("notes").value.trim()
   };
 
+  setBookingLoadingState(true);
+
   try {
     const res = await fetch(`${API_BASE}/bookAppointment`, {
       method: "POST",
@@ -470,7 +488,10 @@ document.getElementById("bookingForm").addEventListener("submit", async (e) => {
   } catch (err) {
     msg.textContent = "Network or server error while booking.";
     msg.style.color = "red";
+  } finally {
+    setBookingLoadingState(false);
   }
-});
+  });
+}
 
 loadAvailability();
